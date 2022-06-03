@@ -1,6 +1,6 @@
-# GitHub Action: Push git subdirectory as branch
+# GitHub Action: Check for differences between a directory and branch
 
-[![](https://github.com/moodiest/push-to-branch-action/workflows/Scheduled%20tests/badge.svg)](https://github.com/moodiest/push-to-branch-action/actions?workflow=Scheduled+tests) [![codecov](https://codecov.io/gh/moodiest/push-to-branch-action/branch/master/graph/badge.svg)](https://codecov.io/gh/moodiest/push-to-branch-action) [![](https://raw.githubusercontent.com/moodiest/push-to-branch-action/gh-badges/drift.svg)](https://github.com/s0/libyear-node-action) [![](https://raw.githubusercontent.com/moodiest/push-to-branch-action/gh-badges/releases.svg)](https://github.com/s0/libyear-node-action)
+[![](https://github.com/moodiest/directory-branch-diff-action/workflows/Scheduled%20tests/badge.svg)](https://github.com/moodiest/directory-branch-diff-action/actions?workflow=Scheduled+tests) [![codecov](https://codecov.io/gh/moodiest/directory-branch-diff-action/branch/master/graph/badge.svg)](https://codecov.io/gh/moodiest/directory-branch-diff-action) [![](https://raw.githubusercontent.com/moodiest/directory-branch-diff-action/gh-badges/drift.svg)](https://github.com/s0/libyear-node-action) [![](https://raw.githubusercontent.com/moodiest/directory-branch-diff-action/gh-badges/releases.svg)](https://github.com/s0/libyear-node-action)
 
 This GitHub Action will take any subdirectory in your repository, and push it as the contents of a git branch to a repository and branch of your choosing, either over SSH or to the current repo.
 
@@ -14,7 +14,7 @@ If the target branch doesn't exist yet, it will be created automatically.
 
 ## Usage
 
-Simply include the action `moodiest/push-to-branch-action@develop` in the appropriate point in your workflow, and pass in the required configuration options:
+Simply include the action `moodiest/directory-branch-diff-action@develop` in the appropriate point in your workflow, and pass in the required configuration options:
 
 ```yml
 jobs:
@@ -28,7 +28,7 @@ jobs:
 
     # Deploy to local repo
     - name: Deploy
-      uses: moodiest/push-to-branch-action@develop
+      uses: moodiest/directory-branch-diff-action@develop
       env:
         REPO: self
         BRANCH: gh-pages
@@ -37,7 +37,7 @@ jobs:
 
     # Deploy to another repo
     - name: Deploy
-      uses: moodiest/push-to-branch-action@develop
+      uses: moodiest/directory-branch-diff-action@develop
       env:
         REPO: git@github.com:owner/repo.git
         BRANCH: gh-pages
@@ -45,6 +45,8 @@ jobs:
         SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_PRIVATE_KEY }}
         KNOWN_HOSTS_FILE: resources/known_hosts # Needed if target repo is not on github.com
 ```
+
+It outputs key called `diff` which is a JSON form of a boolean, `true` if the directory has changed, `false` if not.
 
 ## Examples
 
@@ -65,7 +67,7 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Deploy
-      uses: moodiest/push-to-branch-action@develop
+      uses: moodiest/directory-branch-diff-action@develop
       env:
         REPO: self
         BRANCH: gh-pages
@@ -98,7 +100,7 @@ jobs:
         npm run build
 
     - name: Deploy
-      uses: moodiest/push-to-branch-action@develop
+      uses: moodiest/directory-branch-diff-action@develop
       env:
         REPO: git@github.com:owner/repo.git
         BRANCH: gh-pages
@@ -135,7 +137,7 @@ jobs:
         npm run build
 
     - name: Deploy
-      uses: moodiest/push-to-branch-action@develop
+      uses: moodiest/directory-branch-diff-action@develop
       env:
         REPO: git@mydomain.com:path/to/repo.git
         BRANCH: artifacts
@@ -194,7 +196,7 @@ Example Usage:
 ```yml
 jobs:
   deploy:
-    - uses: moodiest/push-to-branch-action@develop
+    - uses: moodiest/directory-branch-diff-action@develop
       env:
         # ...
         MESSAGE: "This updates the content to the commit {sha} that had the message:\n{msg}"
@@ -255,7 +257,7 @@ And the workflow file `.github/workflows/ci.yml`:
 ```yml
 jobs:
   deploy:
-    - uses: moodiest/push-to-branch-action@develop
+    - uses: moodiest/directory-branch-diff-action@develop
       env:
         # ...
         CLEAR_GLOBS_FILE: ".clear-target-files"

@@ -1,5 +1,5 @@
 {
-  "name": "git-publish-subdir-action",
+  "name": "directory-branch-diff-action",
   "scripts": {
     "build": "tsc && ncc build lib/src/run",
     "lint-prettier": "prettier -c src/**/* test/**/*.ts",

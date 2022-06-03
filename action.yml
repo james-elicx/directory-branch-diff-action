@@ -1,7 +1,10 @@
 # action.yml
-name: 'Push git subdirectory as branch'
-description: 'Push a subdirectory as a branch to any git repo over SSH (or to the local repo)'
-author: 'Sam Lanning <sam@samlanning.com>'
+name: 'Directory Branch Difference Checker'
+description: 'Check for differences between a directory and branch'
+author: 'James <james@eli.cx>'
+outputs:
+  diff:
+    description: 'If there are differences between a directory and branch - boolean in JSON'
 runs:
   using: 'node12'
   main: 'action/dist/index.js'

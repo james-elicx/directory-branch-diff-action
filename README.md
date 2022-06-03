@@ -14,7 +14,7 @@ If the target branch doesn't exist yet, it will be created automatically.
 
 ## Usage
 
-Simply include the action `moodiest/directory-branch-diff-action@develop` in the appropriate point in your workflow, and pass in the required configuration options:
+Simply include the action `moodiest/directory-branch-diff-action@master` in the appropriate point in your workflow, and pass in the required configuration options:
 
 ```yml
 jobs:
@@ -28,7 +28,7 @@ jobs:
 
     # Deploy to local repo
     - name: Deploy
-      uses: moodiest/directory-branch-diff-action@develop
+      uses: moodiest/directory-branch-diff-action@master
       env:
         REPO: self
         BRANCH: gh-pages
@@ -37,7 +37,7 @@ jobs:
 
     # Deploy to another repo
     - name: Deploy
-      uses: moodiest/directory-branch-diff-action@develop
+      uses: moodiest/directory-branch-diff-action@master
       env:
         REPO: git@github.com:owner/repo.git
         BRANCH: gh-pages
@@ -67,7 +67,7 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Deploy
-      uses: moodiest/directory-branch-diff-action@develop
+      uses: moodiest/directory-branch-diff-action@master
       env:
         REPO: self
         BRANCH: gh-pages
@@ -100,7 +100,7 @@ jobs:
         npm run build
 
     - name: Deploy
-      uses: moodiest/directory-branch-diff-action@develop
+      uses: moodiest/directory-branch-diff-action@master
       env:
         REPO: git@github.com:owner/repo.git
         BRANCH: gh-pages
@@ -137,7 +137,7 @@ jobs:
         npm run build
 
     - name: Deploy
-      uses: moodiest/directory-branch-diff-action@develop
+      uses: moodiest/directory-branch-diff-action@master
       env:
         REPO: git@mydomain.com:path/to/repo.git
         BRANCH: artifacts
@@ -196,7 +196,7 @@ Example Usage:
 ```yml
 jobs:
   deploy:
-    - uses: moodiest/directory-branch-diff-action@develop
+    - uses: moodiest/directory-branch-diff-action@master
       env:
         # ...
         MESSAGE: "This updates the content to the commit {sha} that had the message:\n{msg}"
@@ -257,7 +257,7 @@ And the workflow file `.github/workflows/ci.yml`:
 ```yml
 jobs:
   deploy:
-    - uses: moodiest/directory-branch-diff-action@develop
+    - uses: moodiest/directory-branch-diff-action@master
       env:
         # ...
         CLEAR_GLOBS_FILE: ".clear-target-files"

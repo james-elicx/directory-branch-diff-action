@@ -128,11 +128,16 @@ export interface EnvironmentVariables {
   TAG?: string;
 
   // Implicit environment variables passed by GitHub
-
   GITHUB_REPOSITORY?: string;
-  GITHUB_EVENT_PATH?: string;
-  /** The name of the person / app that that initiated the workflow */
-  GITHUB_ACTOR?: string;
+  
+  /**
+   * The name to use for the GitHub commit
+   */
+  COMMIT_NAME?: string;
+  /**
+   * The email to use for the GitHub commit
+   */
+  COMMIT_EMAIL?: string;
 }
 
 declare global {
@@ -186,6 +191,8 @@ interface BaseConfig {
   skipEmptyCommits: boolean;
   message: string;
   tag?: string;
+  authorName: string;
+  authorEmail: string;
 }
 
 interface SshConfig extends BaseConfig {
@@ -225,6 +232,8 @@ const genConfig: (env?: EnvironmentVariables) => Config = (
   const skipEmptyCommits = env.SKIP_EMPTY_COMMITS === 'true';
   const message = env.MESSAGE || DEFAULT_MESSAGE;
   const tag = env.TAG;
+  const authorName = env.COMMIT_NAME || 'Action: Push to Branch';
+  const authorEmail = env.COMMIT_EMAIL || 'action@github.com';
 
   // Determine the type of URL
   if (repo === REPO_SELF) {
@@ -242,6 +251,8 @@ const genConfig: (env?: EnvironmentVariables) => Config = (
       mode: 'self',
       message,
       tag,
+      authorName,
+      authorEmail,
     };
     return config;
   }
@@ -262,6 +273,8 @@ const genConfig: (env?: EnvironmentVariables) => Config = (
       knownHostsFile: env.KNOWN_HOSTS_FILE,
       message,
       tag,
+      authorName,
+      authorEmail,
     };
     return config;
   }
@@ -322,24 +335,11 @@ export const main = async ({
   const REPO_TEMP = path.join(TMP_PATH, 'repo');
   const SSH_AUTH_SOCK = path.join(TMP_PATH, 'ssh_agent.sock');
 
-  if (!env.GITHUB_EVENT_PATH) throw new Error('Expected GITHUB_EVENT_PATH');
-
-  const event: Event = JSON.parse(
-    (await fs.readFile(env.GITHUB_EVENT_PATH)).toString()
-  );
-
-  const name =
-    event.pusher?.name || env.GITHUB_ACTOR || 'Git Publish Subdirectory';
-  const email =
-    event.pusher?.email ||
-    (env.GITHUB_ACTOR
-      ? `${env.GITHUB_ACTOR}@users.noreply.github.com`
-      : 'nobody@nowhere');
   const tag = env.TAG;
 
   // Set Git Config
-  await exec(`git config --global user.name "${name}"`, { log });
-  await exec(`git config --global user.email "${email}"`, { log });
+  await exec(`git config --global user.name "${config.authorName}"`, { log });
+  await exec(`git config --global user.email "${config.authorEmail}"`, { log });
 
   interface GitInformation {
     commitMessage: string;
@@ -563,7 +563,7 @@ export const main = async ({
     fs: fsModule,
     dir: REPO_TEMP,
     message,
-    author: { email, name },
+    author: { email: config.authorEmail, name: config.authorName },
   });
   if (tag) {
     log.log(`##[info] Tagging commit with ${tag}`);

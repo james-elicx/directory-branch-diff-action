@@ -172,6 +172,8 @@ All configuration options are passed in via `env`, as environment variables.
 | `MESSAGE`          | A custom template to use as the commit message pushed to the target branch. See [custom commit messages](#custom-commit-messages). | No |
 | `TAG` | A string following the [git-check-ref-format](https://git-scm.com/docs/git-check-ref-format) that tags the commit with a lightweight git-tag. | No |
 | `CLEAR_GLOBS_FILE` | An optional path to a file to use as a list of globs defining which files to delete when clearing the target branch. | No |
+| `COMMIT_NAME` | An optional string to use for the name on the commit. | No |
+| `COMMIT_EMAIL` | An optional string to use for the email on the commit. | No |
 
 ### Custom commit messages
 

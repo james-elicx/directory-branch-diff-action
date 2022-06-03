@@ -1176,10 +1176,10 @@ micromatch.not = (list, patterns, options = {}) => {
     items.push(state.output);
   };
 
-  let matches = micromatch(list, patterns, { ...options, onResult });
+  let matches = new Set(micromatch(list, patterns, { ...options, onResult }));
 
   for (let item of items) {
-    if (!matches.includes(item)) {
+    if (!matches.has(item)) {
       result.add(item);
     }
   }
@@ -1429,7 +1429,7 @@ micromatch.scan = (...args) => picomatch.scan(...args);
  *
  * ```js
  * const mm = require('micromatch');
- * const state = mm(pattern[, options]);
+ * const state = mm.parse(pattern[, options]);
  * ```
  * @param {String} `glob`
  * @param {Object} `options`
@@ -12576,7 +12576,11 @@ module.exports = AsyncLock;
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
 }) : (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
@@ -12686,6 +12690,8 @@ const genConfig = (env = process.env) => {
     const skipEmptyCommits = env.SKIP_EMPTY_COMMITS === 'true';
     const message = env.MESSAGE || DEFAULT_MESSAGE;
     const tag = env.TAG;
+    const authorName = env.COMMIT_NAME || 'Action: Push to Branch';
+    const authorEmail = env.COMMIT_EMAIL || 'action@github.com';
     // Determine the type of URL
     if (repo === REPO_SELF) {
         if (!env.GITHUB_TOKEN)
@@ -12702,6 +12708,8 @@ const genConfig = (env = process.env) => {
             mode: 'self',
             message,
             tag,
+            authorName,
+            authorEmail,
         };
         return config;
     }
@@ -12721,6 +12729,8 @@ const genConfig = (env = process.env) => {
             knownHostsFile: env.KNOWN_HOSTS_FILE,
             message,
             tag,
+            authorName,
+            authorEmail,
         };
         return config;
     }
@@ -12755,24 +12765,15 @@ const writeToProcess = (command, args, opts) => new Promise((resolve, reject) =>
     });
 });
 const main = async ({ env = process.env, log, }) => {
-    var _a, _b;
     const config = genConfig(env);
     // Calculate paths that use temp diractory
     const TMP_PATH = await fs_1.promises.mkdtemp(path.join((0, os_1.tmpdir)(), 'git-publish-subdir-action-'));
     const REPO_TEMP = path.join(TMP_PATH, 'repo');
     const SSH_AUTH_SOCK = path.join(TMP_PATH, 'ssh_agent.sock');
-    if (!env.GITHUB_EVENT_PATH)
-        throw new Error('Expected GITHUB_EVENT_PATH');
-    const event = JSON.parse((await fs_1.promises.readFile(env.GITHUB_EVENT_PATH)).toString());
-    const name = ((_a = event.pusher) === null || _a === void 0 ? void 0 : _a.name) || env.GITHUB_ACTOR || 'Git Publish Subdirectory';
-    const email = ((_b = event.pusher) === null || _b === void 0 ? void 0 : _b.email) ||
-        (env.GITHUB_ACTOR
-            ? `${env.GITHUB_ACTOR}@users.noreply.github.com`
-            : 'nobody@nowhere');
     const tag = env.TAG;
     // Set Git Config
-    await (0, exports.exec)(`git config --global user.name "${name}"`, { log });
-    await (0, exports.exec)(`git config --global user.email "${email}"`, { log });
+    await (0, exports.exec)(`git config --global user.name "${config.authorName}"`, { log });
+    await (0, exports.exec)(`git config --global user.email "${config.authorEmail}"`, { log });
     /**
      * Get information about the current git repository
      */
@@ -12979,7 +12980,7 @@ const main = async ({ env = process.env, log, }) => {
         fs: fs_1.default,
         dir: REPO_TEMP,
         message,
-        author: { email, name },
+        author: { email: config.authorEmail, name: config.authorName },
     });
     if (tag) {
         log.log(`##[info] Tagging commit with ${tag}`);
@@ -15944,7 +15945,7 @@ var CRC32;
 	/*eslint-enable */
 	/*jshint ignore:end */
 }(function(CRC32) {
-CRC32.version = '1.2.1';
+CRC32.version = '1.2.2';
 /*global Int32Array */
 function signed_crc_table() {
 	var c = 0, table = new Array(256);
@@ -18202,6 +18203,7 @@ var diff3Merge = _interopDefault(__webpack_require__(750));
  * @property {string} url - The URL to request
  * @property {string} [method='GET'] - The HTTP method to use
  * @property {Object<string, string>} [headers={}] - Headers to include in the HTTP request
+ * @property {Object} [agent] - An HTTP or HTTPS agent that manages connections for the HTTP client (Node.js only)
  * @property {AsyncIterableIterator<Uint8Array>} [body] - An async iterator of Uint8Arrays that make up the body of POST requests
  * @property {ProgressCallback} [onProgress] - Reserved for future use (emitting `GitProgressEvent`s)
  * @property {object} [signal] - Reserved for future use (canceling a request)
@@ -18932,6 +18934,10 @@ class GitIndex {
     this._dirty = true;
   }
 
+  has({ filepath }) {
+    return this._entries.has(filepath)
+  }
+
   render() {
     return this.entries
       .map(entry => `${entry.mode.toString(8)} ${entry.oid}    ${entry.path}`)
@@ -19041,7 +19047,7 @@ class GitIndexManager {
     const filepath = `${gitdir}/index`;
     if (lock === null) lock = new AsyncLock({ maxPending: Infinity });
     let result;
-    await lock.acquire(filepath, async function() {
+    await lock.acquire(filepath, async () => {
       // Acquire a file lock while we're reading the index
       // to make sure other processes aren't writing to it
       // simultaneously, which could result in a corrupted index.
@@ -19061,6 +19067,7 @@ class GitIndexManager {
         index._dirty = false;
       }
     });
+
     return result
   }
 }
@@ -19639,6 +19646,21 @@ const getPath = (section, subsection, name) => {
     .join('.')
 };
 
+const normalizePath$1 = path => {
+  const pathSegments = path.split('.');
+  const section = pathSegments.shift();
+  const name = pathSegments.pop();
+  const subsection = pathSegments.length ? pathSegments.join('.') : undefined;
+
+  return {
+    section,
+    subsection,
+    name,
+    path: getPath(section, subsection, name),
+    sectionPath: getPath(section, subsection, null),
+  }
+};
+
 const findLastIndex = (array, callback) => {
   return array.reduce((lastIndex, item, index) => {
     return callback(item) ? index : lastIndex
@@ -19678,8 +19700,9 @@ class GitConfig {
   }
 
   async get(path, getall = false) {
+    const normalizedPath = normalizePath$1(path).path;
     const allValues = this.parsedConfig
-      .filter(config => config.path === path.toLowerCase())
+      .filter(config => config.path === normalizedPath)
       .map(({ section, name, value }) => {
         const fn = schema[section] && schema[section][name];
         return fn ? fn(value) : value
@@ -19709,9 +19732,16 @@ class GitConfig {
   }
 
   async set(path, value, append = false) {
+    const {
+      section,
+      subsection,
+      name,
+      path: normalizedPath,
+      sectionPath,
+    } = normalizePath$1(path);
     const configIndex = findLastIndex(
       this.parsedConfig,
-      config => config.path === path.toLowerCase()
+      config => config.path === normalizedPath
     );
     if (value == null) {
       if (configIndex !== -1) {
@@ -19720,7 +19750,9 @@ class GitConfig {
     } else {
       if (configIndex !== -1) {
         const config = this.parsedConfig[configIndex];
+        // Name should be overwritten in case the casing changed
         const modifiedConfig = Object.assign({}, config, {
+          name,
           value,
           modified: true,
         });
@@ -19730,13 +19762,6 @@ class GitConfig {
           this.parsedConfig[configIndex] = modifiedConfig;
         }
       } else {
-        const pathSegments = path.split('.');
-        const section = pathSegments.shift().toLowerCase();
-        const name = pathSegments.pop();
-        const subsection = pathSegments.length
-          ? pathSegments.join('.').toLowerCase()
-          : undefined;
-        const sectionPath = subsection ? section + '.' + subsection : section;
         const sectionIndex = this.parsedConfig.findIndex(
           config => config.path === sectionPath
         );
@@ -19746,7 +19771,7 @@ class GitConfig {
           name,
           value,
           modified: true,
-          path: getPath(section, subsection, name),
+          path: normalizedPath,
         };
         if (SECTION_REGEX.test(section) && VARIABLE_NAME_REGEX.test(name)) {
           if (sectionIndex >= 0) {
@@ -19758,7 +19783,7 @@ class GitConfig {
               section,
               subsection,
               modified: true,
-              path: getPath(section, subsection, null),
+              path: sectionPath,
             };
             this.parsedConfig.push(newSection, newConfig);
           }
@@ -19774,6 +19799,10 @@ class GitConfig {
           return line
         }
         if (name != null && value != null) {
+          if (typeof value === 'string' && /[#;]/.test(value)) {
+            // A `#` or `;` symbol denotes a comment, so we have to wrap it in double quotes
+            return `\t${name} = "${value}"`
+          }
           return `\t${name} = ${value}`
         }
         if (subsection != null) {
@@ -21288,12 +21317,14 @@ HttpError.code = 'HttpError';
 
 class InvalidFilepathError extends BaseError {
   /**
-   * @param {'leading-slash'|'trailing-slash'} [reason]
+   * @param {'leading-slash'|'trailing-slash'|'directory'} [reason]
    */
   constructor(reason) {
     let message = 'invalid filepath';
     if (reason === 'leading-slash' || reason === 'trailing-slash') {
       message = `"filepath" parameter should not include leading or trailing directory separators because these can cause problems on some platforms.`;
+    } else if (reason === 'directory') {
+      message = `"filepath" should not be a directory.`;
     }
     super(message);
     this.code = this.name = InvalidFilepathError.code;
@@ -21372,6 +21403,23 @@ class MissingParameterError extends BaseError {
 }
 /** @type {'MissingParameterError'} */
 MissingParameterError.code = 'MissingParameterError';
+
+class MultipleGitError extends BaseError {
+  /**
+   * @param {Error[]} errors
+   * @param {string} message
+   */
+  constructor(errors) {
+    super(
+      `There are multiple errors that were thrown by the method. Please refer to the "errors" property to see more`
+    );
+    this.code = this.name = MultipleGitError.code;
+    this.data = { errors };
+    this.errors = errors;
+  }
+}
+/** @type {'MultipleGitError'} */
+MultipleGitError.code = 'MultipleGitError';
 
 class ParseError extends BaseError {
   /**
@@ -21498,6 +21546,7 @@ var Errors = /*#__PURE__*/Object.freeze({
   MergeNotSupportedError: MergeNotSupportedError,
   MissingNameError: MissingNameError,
   MissingParameterError: MissingParameterError,
+  MultipleGitError: MultipleGitError,
   NoRefspecError: NoRefspecError,
   NotFoundError: NotFoundError,
   ObjectTypeError: ObjectTypeError,
@@ -22582,12 +22631,6 @@ function assertParameter(name, value) {
   }
 }
 
-function posixifyPathBuffer(buffer) {
-  let idx;
-  while (~(idx = buffer.indexOf(92))) buffer[idx] = 47;
-  return buffer
-}
-
 // @ts-check
 
 /**
@@ -22597,8 +22640,9 @@ function posixifyPathBuffer(buffer) {
  * @param {FsClient} args.fs - a file system implementation
  * @param {string} args.dir - The [working tree](dir-vs-gitdir.md) directory path
  * @param {string} [args.gitdir=join(dir, '.git')] - [required] The [git directory](dir-vs-gitdir.md) path
- * @param {string} args.filepath - The path to the file to add to the index
+ * @param {string|string[]} args.filepath - The path to the file to add to the index
  * @param {object} [args.cache] - a [cache](cache.md) object
+ * @param {boolean} [args.force=false] - add to index even if matches gitignore. Think `git add --force`
  *
  * @returns {Promise<void>} Resolves successfully once the git index has been updated
  *
@@ -22614,6 +22658,7 @@ async function add({
   gitdir = join(dir, '.git'),
   filepath,
   cache = {},
+  force = false,
 }) {
   try {
     assertParameter('fs', _fs);
@@ -22622,8 +22667,8 @@ async function add({
     assertParameter('filepath', filepath);
 
     const fs = new FileSystem(_fs);
-    await GitIndexManager.acquire({ fs, gitdir, cache }, async function(index) {
-      await addToIndex({ dir, gitdir, fs, filepath, index });
+    await GitIndexManager.acquire({ fs, gitdir, cache }, async index => {
+      return addToIndex({ dir, gitdir, fs, filepath, index, force })
     });
   } catch (err) {
     err.caller = 'git.add';
@@ -22631,31 +22676,61 @@ async function add({
   }
 }
 
-async function addToIndex({ dir, gitdir, fs, filepath, index }) {
+async function addToIndex({ dir, gitdir, fs, filepath, index, force }) {
   // TODO: Should ignore UNLESS it's already in the index.
-  const ignored = await GitIgnoreManager.isIgnored({
-    fs,
-    dir,
-    gitdir,
-    filepath,
+  filepath = Array.isArray(filepath) ? filepath : [filepath];
+  const promises = filepath.map(async currentFilepath => {
+    if (!force) {
+      const ignored = await GitIgnoreManager.isIgnored({
+        fs,
+        dir,
+        gitdir,
+        filepath: currentFilepath,
+      });
+      if (ignored) return
+    }
+    const stats = await fs.lstat(join(dir, currentFilepath));
+    if (!stats) throw new NotFoundError(currentFilepath)
+
+    if (stats.isDirectory()) {
+      const children = await fs.readdir(join(dir, currentFilepath));
+      const promises = children.map(child =>
+        addToIndex({
+          dir,
+          gitdir,
+          fs,
+          filepath: [join(currentFilepath, child)],
+          index,
+          force,
+        })
+      );
+      await Promise.all(promises);
+    } else {
+      const object = stats.isSymbolicLink()
+        ? await fs.readlink(join(dir, currentFilepath))
+        : await fs.read(join(dir, currentFilepath));
+      if (object === null) throw new NotFoundError(currentFilepath)
+      const oid = await _writeObject({ fs, gitdir, type: 'blob', object });
+      index.insert({ filepath: currentFilepath, stats, oid });
+    }
   });
-  if (ignored) return
-  const stats = await fs.lstat(join(dir, filepath));
-  if (!stats) throw new NotFoundError(filepath)
-  if (stats.isDirectory()) {
-    const children = await fs.readdir(join(dir, filepath));
-    const promises = children.map(child =>
-      addToIndex({ dir, gitdir, fs, filepath: join(filepath, child), index })
-    );
-    await Promise.all(promises);
-  } else {
-    const object = stats.isSymbolicLink()
-      ? await fs.readlink(join(dir, filepath)).then(posixifyPathBuffer)
-      : await fs.read(join(dir, filepath));
-    if (object === null) throw new NotFoundError(filepath)
-    const oid = await _writeObject({ fs, gitdir, type: 'blob', object });
-    index.insert({ filepath, stats, oid });
+
+  const settledPromises = await Promise.allSettled(promises);
+  const rejectedPromises = settledPromises
+    .filter(settle => settle.status === 'rejected')
+    .map(settle => settle.reason);
+  if (rejectedPromises.length > 1) {
+    throw new MultipleGitError(rejectedPromises)
   }
+  if (rejectedPromises.length === 1) {
+    throw rejectedPromises[0]
+  }
+
+  const fulfilledPromises = settledPromises
+    .filter(settle => settle.status === 'fulfilled' && settle.value)
+    .map(settle => settle.value);
+
+  return fulfilledPromises
 }
 
 // @ts-check
@@ -24010,7 +24085,7 @@ async function analyze({
 
       // This is a kind of silly pattern but it worked so well for me in the past
       // and it makes intuitively demonstrating exhaustiveness so *easy*.
-      // This checks for the presense and/or absense of each of the 3 entries,
+      // This checks for the presense and/or absence of each of the 3 entries,
       // converts that to a 3-bit binary representation, and then handles
       // every possible combination (2^3 or 8 cases) with a lookup table.
       const key = [!!stage, !!commit, !!workdir].map(Number).join('');
@@ -25043,8 +25118,8 @@ function filterCapabilities(server, client) {
 
 const pkg = {
   name: 'isomorphic-git',
-  version: '1.11.2',
-  agent: 'git/isomorphic-git@1.11.2',
+  version: '1.17.3',
+  agent: 'git/isomorphic-git@1.17.3',
 };
 
 class FIFO {
@@ -26814,6 +26889,7 @@ async function mergeBlobs({
  * @param {string} args.gitdir
  * @param {string} [args.ours]
  * @param {string} args.theirs
+ * @param {boolean} args.fastForward
  * @param {boolean} args.fastForwardOnly
  * @param {boolean} args.dryRun
  * @param {boolean} args.noUpdateBranch
@@ -26840,6 +26916,7 @@ async function _merge({
   gitdir,
   ours,
   theirs,
+  fastForward = true,
   fastForwardOnly = false,
   dryRun = false,
   noUpdateBranch = false,
@@ -26890,7 +26967,7 @@ async function _merge({
       alreadyMerged: true,
     }
   }
-  if (baseOid === ourOid) {
+  if (fastForward && baseOid === ourOid) {
     if (!dryRun && !noUpdateBranch) {
       await GitRefManager.writeRef({ fs, gitdir, ref: ours, value: theirOid });
     }
@@ -26964,6 +27041,7 @@ async function _merge({
  * @param {string} [args.remoteRef]
  * @param {string} [args.corsProxy]
  * @param {boolean} args.singleBranch
+ * @param {boolean} args.fastForward
  * @param {boolean} args.fastForwardOnly
  * @param {Object<string, string>} [args.headers]
  * @param {Object} args.author
@@ -26996,6 +27074,7 @@ async function _pull({
   url,
   remote,
   remoteRef,
+  fastForward,
   fastForwardOnly,
   corsProxy,
   singleBranch,
@@ -27040,6 +27119,7 @@ async function _pull({
       gitdir,
       ours: ref,
       theirs: fetchHead,
+      fastForward,
       fastForwardOnly,
       message: `Merge ${fetchHeadDescription}`,
       author,
@@ -28879,11 +28959,11 @@ async function _log({
             }
           }
           if (!found) {
-            if (!force && !follow) throw e
             if (isOk && lastFileOid) {
               commits.push(lastCommit);
-              // break
+              if (!force) break
             }
+            if (!force && !follow) throw e
           }
           lastCommit = commit;
           isOk = false;
@@ -29019,6 +29099,7 @@ async function log({
  * @param {string} [args.gitdir=join(dir,'.git')] - [required] The [git directory](dir-vs-gitdir.md) path
  * @param {string} [args.ours] - The branch receiving the merge. If undefined, defaults to the current branch.
  * @param {string} args.theirs - The branch to be merged
+ * @param {boolean} [args.fastForward = true] - If false, create a merge commit in all cases.
  * @param {boolean} [args.fastForwardOnly = false] - If true, then non-fast-forward merges will throw an Error instead of performing a merge.
  * @param {boolean} [args.dryRun = false] - If true, simulates a merge so you can test whether it would succeed.
  * @param {boolean} [args.noUpdateBranch = false] - If true, does not update the branch pointer after creating the commit.
@@ -29056,6 +29137,7 @@ async function merge({
   gitdir = join(dir, '.git'),
   ours,
   theirs,
+  fastForward = true,
   fastForwardOnly = false,
   dryRun = false,
   noUpdateBranch = false,
@@ -29073,7 +29155,9 @@ async function merge({
     const fs = new FileSystem(_fs);
 
     const author = await normalizeAuthorObject({ fs, gitdir, author: _author });
-    if (!author && !fastForwardOnly) throw new MissingNameError('author')
+    if (!author && (!fastForwardOnly || !fastForward)) {
+      throw new MissingNameError('author')
+    }
 
     const committer = await normalizeCommitterObject({
       fs,
@@ -29081,7 +29165,7 @@ async function merge({
       author,
       committer: _committer,
     });
-    if (!committer && !fastForwardOnly) {
+    if (!committer && (!fastForwardOnly || !fastForward)) {
       throw new MissingNameError('committer')
     }
 
@@ -29091,6 +29175,7 @@ async function merge({
       gitdir,
       ours,
       theirs,
+      fastForward,
       fastForwardOnly,
       dryRun,
       noUpdateBranch,
@@ -29295,6 +29380,7 @@ async function packObjects({
  * @param {string} [args.remoteRef] - (Added in 1.1.0) The name of the branch on the remote to fetch. By default this is the configured remote tracking branch.
  * @param {string} [args.corsProxy] - Optional [CORS proxy](https://www.npmjs.com/%40isomorphic-git/cors-proxy). Overrides value in repo config.
  * @param {boolean} [args.singleBranch = false] - Instead of the default behavior of fetching all the branches, only fetch a single branch.
+ * @param {boolean} [args.fastForward = true] -  If false, only create merge commits.
  * @param {boolean} [args.fastForwardOnly = false] - Only perform simple fast-forward merges. (Don't create merge commits.)
  * @param {Object<string, string>} [args.headers] - Additional headers to include in HTTP requests, similar to git's `extraHeader` config
  * @param {Object} [args.author] - The details about the author.
@@ -29337,6 +29423,7 @@ async function pull({
   url,
   remote,
   remoteRef,
+  fastForward = true,
   fastForwardOnly = false,
   corsProxy,
   singleBranch,
@@ -29378,6 +29465,7 @@ async function pull({
       url,
       remote,
       remoteRef,
+      fastForward,
       fastForwardOnly,
       corsProxy,
       singleBranch,
@@ -30920,32 +31008,47 @@ async function resetIndex({
   dir,
   gitdir = join(dir, '.git'),
   filepath,
-  ref = 'HEAD',
+  ref,
   cache = {},
 }) {
   try {
     assertParameter('fs', _fs);
     assertParameter('gitdir', gitdir);
     assertParameter('filepath', filepath);
-    assertParameter('ref', ref);
 
     const fs = new FileSystem(_fs);
-    // Resolve commit
-    let oid = await GitRefManager.resolve({ fs, gitdir, ref });
+
+    let oid;
     let workdirOid;
+
     try {
-      // Resolve blob
-      oid = await resolveFilepath({
-        fs,
-        cache,
-        gitdir,
-        oid,
-        filepath,
-      });
+      // Resolve commit
+      oid = await GitRefManager.resolve({ fs, gitdir, ref: ref || 'HEAD' });
     } catch (e) {
-      // This means we're resetting the file to a "deleted" state
-      oid = null;
+      if (ref) {
+        // Only throw the error if a ref is explicitly provided
+        throw e
+      }
     }
+
+    // Not having an oid at this point means `resetIndex()` was called without explicit `ref` on a new git
+    // repository. If that happens, we can skip resolving the file path.
+    if (oid) {
+      try {
+        // Resolve blob
+        oid = await resolveFilepath({
+          fs,
+          cache,
+          gitdir,
+          oid,
+          filepath,
+        });
+      } catch (e) {
+        // This means we're resetting the file to a "deleted" state
+        oid = null;
+      }
+    }
+
     // For files that aren't in the workdir use zeros
     let stats = {
       ctime: new Date(0),
@@ -31439,6 +31542,7 @@ async function getHeadTree({ fs, cache, gitdir }) {
  * @param {string[]} [args.filepaths = ['.']] - Limit the query to the given files and directories
  * @param {function(string): boolean} [args.filter] - Filter the results to only those whose filepath matches a function.
  * @param {object} [args.cache] - a [cache](cache.md) object
+ * @param {boolean} [args.ignored = false] - include ignored files in the result
  *
  * @returns {Promise<Array<StatusRow>>} Resolves with a status matrix, described below.
  * @see StatusRow
@@ -31451,6 +31555,7 @@ async function statusMatrix({
   filepaths = ['.'],
   filter,
   cache = {},
+  ignored: shouldIgnore = false,
 }) {
   try {
     assertParameter('fs', _fs);
@@ -31467,14 +31572,15 @@ async function statusMatrix({
       map: async function(filepath, [head, workdir, stage]) {
         // Ignore ignored files, but only if they are not already tracked.
         if (!head && !stage && workdir) {
-          if (
-            await GitIgnoreManager.isIgnored({
+          if (!shouldIgnore) {
+            const isIgnored = await GitIgnoreManager.isIgnored({
               fs,
               dir,
               filepath,
-            })
-          ) {
-            return null
+            });
+            if (isIgnored) {
+              return null
+            }
           }
         }
         // match against base paths
@@ -31486,27 +31592,37 @@ async function statusMatrix({
           if (!filter(filepath)) return
         }
 
-        // For now, just bail on directories
-        const headType = head && (await head.type());
-        if (headType === 'tree' || headType === 'special') return
+        const [headType, workdirType, stageType] = await Promise.all([
+          head && head.type(),
+          workdir && workdir.type(),
+          stage && stage.type(),
+        ]);
+
+        const isBlob = [headType, workdirType, stageType].includes('blob');
+
+        // For now, bail on directories unless the file is also a blob in another tree
+        if ((headType === 'tree' || headType === 'special') && !isBlob) return
         if (headType === 'commit') return null
 
-        const workdirType = workdir && (await workdir.type());
-        if (workdirType === 'tree' || workdirType === 'special') return
+        if ((workdirType === 'tree' || workdirType === 'special') && !isBlob)
+          return
 
-        const stageType = stage && (await stage.type());
         if (stageType === 'commit') return null
-        if (stageType === 'tree' || stageType === 'special') return
+        if ((stageType === 'tree' || stageType === 'special') && !isBlob) return
 
-        // Figure out the oids, using the staged oid for the working dir oid if the stats match.
-        const headOid = head ? await head.oid() : undefined;
-        const stageOid = stage ? await stage.oid() : undefined;
+        // Figure out the oids for files, using the staged oid for the working dir oid if the stats match.
+        const headOid = headType === 'blob' ? await head.oid() : undefined;
+        const stageOid = stageType === 'blob' ? await stage.oid() : undefined;
         let workdirOid;
-        if (!head && workdir && !stage) {
+        if (
+          headType !== 'blob' &&
+          workdirType === 'blob' &&
+          stageType !== 'blob'
+        ) {
           // We don't actually NEED the sha. Any sha will do
           // TODO: update this logic to handle N trees instead of just 3.
           workdirOid = '42';
-        } else if (workdir) {
+        } else if (workdirType === 'blob') {
           workdirOid = await workdir.oid();
         }
         const entry = [undefined, headOid, workdirOid, stageOid];
@@ -31576,6 +31692,169 @@ async function tag({
     await GitRefManager.writeRef({ fs, gitdir, ref, value });
   } catch (err) {
     err.caller = 'git.tag';
+    throw err
+  }
+}
+
+// @ts-check
+
+/**
+ * Register file contents in the working tree or object database to the git index (aka staging area).
+ *
+ * @param {object} args
+ * @param {FsClient} args.fs - a file system client
+ * @param {string} args.dir - The [working tree](dir-vs-gitdir.md) directory path
+ * @param {string} [args.gitdir=join(dir, '.git')] - [required] The [git directory](dir-vs-gitdir.md) path
+ * @param {string} args.filepath - File to act upon.
+ * @param {string} [args.oid] - OID of the object in the object database to add to the index with the specified filepath.
+ * @param {number} [args.mode = 100644] - The file mode to add the file to the index.
+ * @param {boolean} [args.add] - Adds the specified file to the index if it does not yet exist in the index.
+ * @param {boolean} [args.remove] - Remove the specified file from the index if it does not exist in the workspace anymore.
+ * @param {boolean} [args.force] - Remove the specified file from the index, even if it still exists in the workspace.
+ * @param {object} [args.cache] - a [cache](cache.md) object
+ *
+ * @returns {Promise<string | void>} Resolves successfully with the SHA-1 object id of the object written or updated in the index, or nothing if the file was removed.
+ *
+ * @example
+ * await git.updateIndex({
+ *   fs,
+ *   dir: '/tutorial',
+ *   filepath: 'readme.md'
+ * })
+ *
+ * @example
+ * // Manually create a blob in the object database.
+ * let oid = await git.writeBlob({
+ *   fs,
+ *   dir: '/tutorial',
+ *   blob: new Uint8Array([])
+ * })
+ *
+ * // Write the object in the object database to the index.
+ * await git.updateIndex({
+ *   fs,
+ *   dir: '/tutorial',
+ *   add: true,
+ *   filepath: 'readme.md',
+ *   oid
+ * })
+ */
+async function updateIndex({
+  fs: _fs,
+  dir,
+  gitdir = join(dir, '.git'),
+  cache = {},
+  filepath,
+  oid,
+  mode,
+  add,
+  remove,
+  force,
+}) {
+  try {
+    assertParameter('fs', _fs);
+    assertParameter('gitdir', gitdir);
+    assertParameter('filepath', filepath);
+
+    const fs = new FileSystem(_fs);
+
+    if (remove) {
+      return await GitIndexManager.acquire(
+        { fs, gitdir, cache },
+        async function(index) {
+          let fileStats;
+
+          if (!force) {
+            // Check if the file is still present in the working directory
+            fileStats = await fs.lstat(join(dir, filepath));
+
+            if (fileStats) {
+              if (fileStats.isDirectory()) {
+                // Removing directories should not work
+                throw new InvalidFilepathError('directory')
+              }
+
+              // Do nothing if we don't force and the file still exists in the workdir
+              return
+            }
+          }
+
+          // Directories are not allowed, so we make sure the provided filepath exists in the index
+          if (index.has({ filepath })) {
+            index.delete({
+              filepath,
+            });
+          }
+        }
+      )
+    }
+
+    // Test if it is a file and exists on disk if `remove` is not provided, only of no oid is provided
+    let fileStats;
+
+    if (!oid) {
+      fileStats = await fs.lstat(join(dir, filepath));
+
+      if (!fileStats) {
+        throw new NotFoundError(
+          `file at "${filepath}" on disk and "remove" not set`
+        )
+      }
+
+      if (fileStats.isDirectory()) {
+        throw new InvalidFilepathError('directory')
+      }
+    }
+
+    return await GitIndexManager.acquire({ fs, gitdir, cache }, async function(
+      index
+    ) {
+      if (!add && !index.has({ filepath })) {
+        // If the index does not contain the filepath yet and `add` is not set, we should throw
+        throw new NotFoundError(
+          `file at "${filepath}" in index and "add" not set`
+        )
+      }
+
+      // By default we use 0 for the stats of the index file
+      let stats = {
+        ctime: new Date(0),
+        mtime: new Date(0),
+        dev: 0,
+        ino: 0,
+        mode,
+        uid: 0,
+        gid: 0,
+        size: 0,
+      };
+
+      if (!oid) {
+        stats = fileStats;
+
+        // Write the file to the object database
+        const object = stats.isSymbolicLink()
+          ? await fs.readlink(join(dir, filepath))
+          : await fs.read(join(dir, filepath));
+
+        oid = await _writeObject({
+          fs,
+          gitdir,
+          type: 'blob',
+          format: 'content',
+          object,
+        });
+      }
+
+      index.insert({
+        filepath,
+        oid: oid,
+        stats,
+      });
+
+      return oid
+    })
+  } catch (err) {
+    err.caller = 'git.updateIndex';
     throw err
   }
 }
@@ -32352,6 +32631,7 @@ var index = {
   removeNote,
   renameBranch,
   resetIndex,
+  updateIndex,
   resolveRef,
   status,
   statusMatrix,
@@ -32425,6 +32705,7 @@ exports.setConfig = setConfig;
 exports.status = status;
 exports.statusMatrix = statusMatrix;
 exports.tag = tag;
+exports.updateIndex = updateIndex;
 exports.version = version;
 exports.walk = walk;
 exports.writeBlob = writeBlob;

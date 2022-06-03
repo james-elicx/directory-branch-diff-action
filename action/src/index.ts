@@ -6,6 +6,7 @@ import { homedir, tmpdir } from 'os';
 import * as path from 'path';
 import git from 'isomorphic-git';
 import { mkdirP } from '@actions/io';
+import { setOutput } from '@actions/core';
 
 export type Console = {
   readonly log: (...msg: unknown[]) => void;
@@ -232,7 +233,7 @@ const genConfig: (env?: EnvironmentVariables) => Config = (
   const skipEmptyCommits = env.SKIP_EMPTY_COMMITS === 'true';
   const message = env.MESSAGE || DEFAULT_MESSAGE;
   const tag = env.TAG;
-  const authorName = env.COMMIT_NAME || 'Action: Push to Branch';
+  const authorName = env.COMMIT_NAME || 'Action: Directory Branch Diffs';
   const authorEmail = env.COMMIT_EMAIL || 'action@github.com';
 
   // Determine the type of URL
@@ -574,41 +575,34 @@ export const main = async ({
       force: true,
     });
   }
-  if (config.skipEmptyCommits) {
-    log.log(`##[info] Checking whether contents have changed before pushing`);
-    // Before we push, check whether it changed the tree,
-    // and avoid pushing if not
-    const head = await git.resolveRef({
+  
+  log.log(`##[info] Checking for differences`);
+  // Check whether the commit changed the tree
+  const head = await git.resolveRef({
+    fs: fsModule,
+    dir: REPO_TEMP,
+    ref: 'HEAD',
+  });
+  const currentCommit = await git.readCommit({
+    fs: fsModule,
+    dir: REPO_TEMP,
+    oid: head,
+  });
+  if (currentCommit.commit.parent.length === 1) {
+    const previousCommit = await git.readCommit({
       fs: fsModule,
       dir: REPO_TEMP,
-      ref: 'HEAD',
+      oid: currentCommit.commit.parent[0],
     });
-    const currentCommit = await git.readCommit({
-      fs: fsModule,
-      dir: REPO_TEMP,
-      oid: head,
-    });
-    if (currentCommit.commit.parent.length === 1) {
-      const previousCommit = await git.readCommit({
-        fs: fsModule,
-        dir: REPO_TEMP,
-        oid: currentCommit.commit.parent[0],
-      });
-      if (currentCommit.commit.tree === previousCommit.commit.tree) {
-        log.log(`##[info] Contents of target repo unchanged, exiting.`);
-        return;
-      }
+    if (currentCommit.commit.tree === previousCommit.commit.tree) {
+      setOutput('diff', JSON.stringify(false));
+      log.log(`##[info] No differences found.`);
+      return;
     }
   }
-  log.log(`##[info] Pushing`);
-  const forceArg = config.squashHistory ? '-f' : '';
-  const tagsArg = tag ? '--tags' : '';
-  const push = await exec(
-    `git push ${forceArg} origin "${config.branch}" ${tagsArg}`,
-    { log, env: childEnv, cwd: REPO_TEMP }
-  );
-  log.log(push.stdout);
-  log.log(`##[info] Deployment Successful`);
+
+  setOutput('diff', JSON.stringify(true));
+  log.log(`##[info] Found differences.`);
 
   if (config.mode === 'ssh') {
     log.log(`##[info] Killing ssh-agent`);

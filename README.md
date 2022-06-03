@@ -1,6 +1,6 @@
 # GitHub Action: Push git subdirectory as branch
 
-[![](https://github.com/s0/git-publish-subdir-action/workflows/Scheduled%20tests/badge.svg)](https://github.com/s0/git-publish-subdir-action/actions?workflow=Scheduled+tests) [![codecov](https://codecov.io/gh/s0/git-publish-subdir-action/branch/master/graph/badge.svg)](https://codecov.io/gh/s0/git-publish-subdir-action) [![](https://raw.githubusercontent.com/s0/git-publish-subdir-action/gh-badges/drift.svg)](https://github.com/s0/libyear-node-action) [![](https://raw.githubusercontent.com/s0/git-publish-subdir-action/gh-badges/releases.svg)](https://github.com/s0/libyear-node-action)
+[![](https://github.com/moodiest/push-to-branch-action/workflows/Scheduled%20tests/badge.svg)](https://github.com/moodiest/push-to-branch-action/actions?workflow=Scheduled+tests) [![codecov](https://codecov.io/gh/moodiest/push-to-branch-action/branch/master/graph/badge.svg)](https://codecov.io/gh/moodiest/push-to-branch-action) [![](https://raw.githubusercontent.com/moodiest/push-to-branch-action/gh-badges/drift.svg)](https://github.com/s0/libyear-node-action) [![](https://raw.githubusercontent.com/moodiest/push-to-branch-action/gh-badges/releases.svg)](https://github.com/s0/libyear-node-action)
 
 This GitHub Action will take any subdirectory in your repository, and push it as the contents of a git branch to a repository and branch of your choosing, either over SSH or to the current repo.
 
@@ -14,7 +14,7 @@ If the target branch doesn't exist yet, it will be created automatically.
 
 ## Usage
 
-Simply include the action `s0/git-publish-subdir-action@develop` in the appropriate point in your workflow, and pass in the required configuration options:
+Simply include the action `moodiest/push-to-branch-action@develop` in the appropriate point in your workflow, and pass in the required configuration options:
 
 ```yml
 jobs:
@@ -28,7 +28,7 @@ jobs:
 
     # Deploy to local repo
     - name: Deploy
-      uses: s0/git-publish-subdir-action@develop
+      uses: moodiest/push-to-branch-action@develop
       env:
         REPO: self
         BRANCH: gh-pages
@@ -37,7 +37,7 @@ jobs:
 
     # Deploy to another repo
     - name: Deploy
-      uses: s0/git-publish-subdir-action@develop
+      uses: moodiest/push-to-branch-action@develop
       env:
         REPO: git@github.com:owner/repo.git
         BRANCH: gh-pages
@@ -65,7 +65,7 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Deploy
-      uses: s0/git-publish-subdir-action@develop
+      uses: moodiest/push-to-branch-action@develop
       env:
         REPO: self
         BRANCH: gh-pages
@@ -98,7 +98,7 @@ jobs:
         npm run build
 
     - name: Deploy
-      uses: s0/git-publish-subdir-action@develop
+      uses: moodiest/push-to-branch-action@develop
       env:
         REPO: git@github.com:owner/repo.git
         BRANCH: gh-pages
@@ -135,7 +135,7 @@ jobs:
         npm run build
 
     - name: Deploy
-      uses: s0/git-publish-subdir-action@develop
+      uses: moodiest/push-to-branch-action@develop
       env:
         REPO: git@mydomain.com:path/to/repo.git
         BRANCH: artifacts
@@ -194,7 +194,7 @@ Example Usage:
 ```yml
 jobs:
   deploy:
-    - uses: s0/git-publish-subdir-action@develop
+    - uses: moodiest/push-to-branch-action@develop
       env:
         # ...
         MESSAGE: "This updates the content to the commit {sha} that had the message:\n{msg}"
@@ -255,7 +255,7 @@ And the workflow file `.github/workflows/ci.yml`:
 ```yml
 jobs:
   deploy:
-    - uses: s0/git-publish-subdir-action@develop
+    - uses: moodiest/push-to-branch-action@develop
       env:
         # ...
         CLEAR_GLOBS_FILE: ".clear-target-files"
